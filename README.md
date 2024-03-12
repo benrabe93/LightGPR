@@ -1,3 +1,5 @@
+Disclaimer: This package is still under development!
+
 # LightGPR
 LightGPR is a minimalist Python library designed for effortless creation of Gaussian Process Regression (GPR) models in an object-oriented manner. With a focus on simplicity and ease of use, this library offers a streamlined approach to implement GPR, allowing users to quickly prototype and experiment with Gaussian processes without unnecessary complexity.
 
