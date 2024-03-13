@@ -11,9 +11,9 @@ Xtrain_1D = np.random.uniform(0, 10, size=8)
 ytrain_1D = np.sin(Xtrain_1D)
 Xtest_1D = np.linspace(0, 10, 1000)
 
-# Train Gaussian process regression model
+# Create Gaussian process regression model
 model_1D = gp_reg(Xtrain_1D, ytrain_1D)#, kernel='RQ')
-model_1D.train()
+model_1D.train() # Learn hyperparameters
 print(f"Loss: {model_1D.loss}, Outputscale: {model_1D.outputscale}, Hyperparams: {model_1D.kernel_hyperparams}, Noise: {model_1D.ynoise}")
 mean_post_1D, var_post_1D = model_1D.predict(Xtest_1D)
 
@@ -34,9 +34,9 @@ ytrain = np.sin(Xtrain[:,0]) + np.cos(Xtrain[:,1])
 test_grid = np.meshgrid(np.linspace(0,1,100), np.linspace(0,1,100))
 Xtest = np.array(list(zip(test_grid[0].ravel(), test_grid[1].ravel())))
 
-# Train Gaussian process regression model
+# Create Gaussian process regression model
 model = gp_reg(Xtrain, ytrain)#, kernel='RQ')
-model.train()
+model.train() # Learn hyperparameters
 print(f"Loss: {model.loss}, Outputscale: {model.outputscale}, Hyperparams: {model.kernel_hyperparams}, Noise: {model.ynoise}")
 mean_post, var_post = model.predict(Xtest)
 
