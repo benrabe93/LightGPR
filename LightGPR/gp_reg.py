@@ -1,8 +1,5 @@
 import numpy as np
 from scipy import optimize
-from functools import partial
-
-from .prior_means import *
 from .kernels import *
 
 
@@ -10,14 +7,14 @@ from .kernels import *
 class gp_reg:
     """Gaussian Process Regression (GPR) class"""
     
-    def __init__(self, Xtrain, ytrain, kernel="RBF", prior_mean=0.0, ynoise=None):
+    def __init__(self, Xtrain, ytrain, kernel="RBF", prior_mean=None, ynoise=None):
         """Initialize GPR model by providing training data (Xtrain, ytrain) and setting prior kernel / covariance function and mean function.
 
         Args:
             Xtrain (np.ndarray): 2D array of training data with shape (n_samples, n_features).
             ytrain (np.ndarray): 1D array of training labels with shape (n_samples,).
             kernel (str, optional): Choice of prior kernel / covariance function. Defaults to "RBF".
-            prior_mean (float or np.ndarray, optional): Arguments for prior mean function. Defaults to 0.
+            prior_mean (func, optional): Prior mean function located at prior_means.py. Defaults to None, corresponding to zero mean.
             ynoise (float, optional): Fixed noise on training data. If set to None, it is treated as a hyperparameter. Defaults to None.
         """
         
@@ -29,6 +26,12 @@ class gp_reg:
         else:
             self.x_dim = len(Xtrain[0])
 
+        # Set prior mean function
+        if prior_mean:
+            self.prior_mean = prior_mean
+        else:
+            self.prior_mean = lambda x: np.zeros(len(x))
+        
         # Set prior kernel / covariance function; add more kernels if needed
         if kernel == "RBF":
             self.kernel = RBF_kernel
@@ -43,17 +46,6 @@ class gp_reg:
         elif kernel == "RBF_bnds_HinB" and self.x_dim > 1:
             self.kernel = RBF_kernel_bnd_HinB
 
-        # Set prior mean function
-        if len(self.Xtrain.shape) == 1:
-            if prior_mean == 'sin':
-                self.prior_mean = sin_mean_1d
-            elif prior_mean == 'sin_bnd':
-                self.prior_mean = sin_mean_bnd_1d
-            else:
-                self.prior_mean = partial(poly_mean_1d, a=prior_mean)
-        else:
-            self.prior_mean = partial(poly_mean_1d, a=0.0)
-        
         # Set hyperparameters
         self.outputscale = 1.0
         self.bnds_outputscale = [(1e-5, 1e4)]

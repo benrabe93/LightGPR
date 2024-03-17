@@ -9,7 +9,7 @@ Key Features:
 
 **Minimalist Implementation:** Aims to provide a lightweight and concise codebase for Gaussian Process Regression, ensuring simplicity without sacrificing functionality.
 
-**Customizable:** Offers flexibility for customization, allowing users to tailor GPR models to specific use cases and datasets by simply adding custom kernel and mean functions.
+**Customizable:** Offers flexibility for customization, allowing users to tailor GPR models to specific use cases and datasets by simply adding custom kernel functions.
 
 Whether you're a seasoned practitioner or just getting started with Gaussian Process Regression, LightGPR offers a straightforward solution for implementing and experimenting with GPR models in Python.
 
@@ -18,4 +18,4 @@ For a quickstart guide to LightGPR, check out the Jupyter notebook [`test.ipynb`
 
 For generic use, import the Python class with `from LightGPR.gp_reg import gp_reg`. Then create a GP model with `model = gp_reg(Xtrain, ytrain)`, where `Xtrain` and `ytrain` are your training data inputs and outputs, respectively. Call `model.train()` to optimize the hyperparameters. `mean_post, var_post = model.predict(Xtest)` then returns the mean and variance of the regression function at the test locations `Xtest`.
 
-Additional custom kernel functions can be added in the file [`kernels.py`](./LightGPR/kernels.py); additional custom prior mean functions can be added in the file [`prior_means.py`](./LightGPR/prior_means.py).
+Additional custom kernel functions can be added in the file [`kernels.py`](./LightGPR/kernels.py); custom prior mean functions are directly given when initializing the model.
