@@ -14,7 +14,7 @@ Key Features:
 Whether you're a seasoned practitioner or just getting started with Gaussian Process Regression, LightGPR offers a straightforward solution for implementing and experimenting with GPR models in Python.
 
 # Usage
-For a quickstart to LightGPR, check out the Jupyter notebook [`test.ipynb`](./test.ipynb).
+For a quickstart guide to LightGPR, check out the Jupyter notebook [`test.ipynb`](./test.ipynb).
 
 For generic use, import the Python class with `from LightGPR.gp_reg import gp_reg`. Then create a GP model with `model = gp_reg(Xtrain, ytrain)`, where `Xtrain` and `ytrain` are your training data inputs and outputs, respectively. Call `model.train()` to optimize the hyperparameters. `mean_post, var_post = model.predict(Xtest)` then returns the mean and variance of the regression function at the test locations `Xtest`.
 
