@@ -7,24 +7,20 @@ from .kernels import *
 class gp_reg:
     """Gaussian Process Regression (GPR) class"""
     
-    def __init__(self, Xtrain, ytrain, kernel="RBF", prior_mean=None, ynoise=None):
+    def __init__(self, Xtrain, ytrain, kernel=RBF_kernel, prior_mean=None, ynoise=None):
         """Initialize GPR model by providing training data (Xtrain, ytrain) and setting prior kernel / covariance function and mean function.
 
         Args:
             Xtrain (np.ndarray): 2D array of training data with shape (n_samples, n_features).
             ytrain (np.ndarray): 1D array of training labels with shape (n_samples,).
-            kernel (str, optional): Choice of prior kernel / covariance function. Defaults to "RBF".
-            prior_mean (func, optional): Prior mean function located at prior_means.py. Defaults to None, corresponding to zero mean.
-            ynoise (float, optional): Fixed noise on training data. If set to None, it is treated as a hyperparameter. Defaults to None.
+            kernel (class, optional): Choice of prior kernel / covariance function from LightGPR.kernels. Defaults to RBF.
+            prior_mean (func, optional): Prior mean function. Defaults to None, corresponding to zero mean.
+            ynoise (float, optional): Fixed noise on training data. If set to None, it is treated as a variable hyperparameter. Defaults to None.
         """
         
         self.Xtrain = np.asarray(Xtrain)
         self.ytrain = np.asarray(ytrain)
-
-        if len(self.Xtrain.shape) == 1:
-            self.x_dim = 1
-        else:
-            self.x_dim = len(Xtrain[0])
+        self.kernel = kernel(self.Xtrain)
 
         # Set prior mean function
         if prior_mean:
@@ -32,44 +28,10 @@ class gp_reg:
         else:
             self.prior_mean = lambda x: np.zeros(len(x))
         
-        # Set prior kernel / covariance function; add more kernels if needed
-        if kernel == "RBF":
-            self.kernel = RBF_kernel
-        elif kernel == "RQ":
-            self.kernel = RQ_kernel
-        elif kernel == "RBF_bnds" and self.x_dim == 1:
-            self.kernel = RBF_kernel_bnd_1d
-        elif kernel == "RBF_bnds_mol" and self.x_dim == 1:
-            self.kernel = RBF_kernel_mol_1d
-        elif kernel == "RBF_bnds" and self.x_dim > 1:
-            self.kernel = RBF_kernel_bnd
-        elif kernel == "RBF_bnds_HinB" and self.x_dim > 1:
-            self.kernel = RBF_kernel_bnd_HinB
-
-        # Set hyperparameters
+        # Set outputscale and noise hyperparameters
         self.outputscale = 1.0
         self.bnds_outputscale = [(1e-5, 1e4)]
-
-        if kernel == "RBF" or kernel == "RBF_bnds" or kernel == "RBF_bnds_HinB":
-            self.lengthscale = 1.0
-            self.bnds_lengthscale = [(1e-5, 1e2)]
-            self.kernel_hyperparams = self.lengthscale * np.ones(self.x_dim)
-            self.bnds_kernel_hyperparams = self.bnds_lengthscale * self.x_dim
-        elif kernel == "RBF_bnds_mol":
-            self.lengthscale = 1.0
-            self.bnds_lengthscale = [(1e-5, 1e2)]
-            self.qzscale = 1.0
-            self.bnds_qzscale = [(1e-5, 1e2)]
-            self.kernel_hyperparams = [self.lengthscale, self.qzscale]
-            self.bnds_kernel_hyperparams = self.bnds_lengthscale + self.bnds_qzscale
-        elif kernel == "RQ":
-            self.lengthscale = 1.0
-            self.bnds_lengthscale = [(1e-5, 1e2)]
-            self.alphascale = 1.0
-            self.bnds_alphascale = [(1e-5, 1e2)]
-            self.kernel_hyperparams = [self.lengthscale, self.alphascale]
-            self.bnds_kernel_hyperparams = self.bnds_lengthscale + self.bnds_alphascale
-
+        
         if ynoise is None:
             self.ynoise = 1e-8
             self.flag_train_noise = True
@@ -81,15 +43,13 @@ class gp_reg:
         self.bias_ynoise = 0.0 # Additional fixed (non-spherical) noise on training data (optional)
 
         self.loss = None # Negative log-likelihood
-        self.L = None # Cholesky decomposition of the covariance matrix / kernel of training data
-        self.Ly = None # L^(-1) @ ytrain
 
 
     def train(self):
         """Find optimal hyperparameters via maximum log-likelihood estimation method."""
         
-        theta0 = np.concatenate(([self.outputscale], self.kernel_hyperparams)) # Initial hyperparameters
-        bnds = self.bnds_outputscale + self.bnds_kernel_hyperparams
+        theta0 = np.concatenate(([self.outputscale], self.kernel.hyperparams)) # Initial hyperparameters
+        bnds = self.bnds_outputscale + self.kernel.bnds_hyperparams
         if self.flag_train_noise:
             theta0 = np.concatenate((theta0, [self.ynoise]))
             bnds = bnds + self.bnds_ynoise
@@ -104,14 +64,11 @@ class gp_reg:
         # Set optimal hyperparameters
         self.outputscale = theta_max[0]
         if self.flag_train_noise:
-            self.kernel_hyperparams = theta_max[1:-1]
+            self.kernel.hyperparams = theta_max[1:-1]
             self.ynoise = theta_max[-1]
         else:
-            self.kernel_hyperparams = theta_max[1:]
+            self.kernel.hyperparams = theta_max[1:]
         self.loss = sol.fun
-        
-        self.L = None
-        self.Ly = None
     
     
     def log_p(self, theta):
@@ -127,15 +84,15 @@ class gp_reg:
         
         len_y = len(self.ytrain)
         if self.flag_train_noise:
-            K, grad_K = self.kernel(self.Xtrain, self.Xtrain, theta[1:-1])
+            self.kernel.hyperparams = theta[1:-1]
+            K, grad_K = self.kernel.matrix()
             C = theta[0]**2 * K + (theta[-1]**2 + self.bias_ynoise**2)*np.eye(len_y)
         else:
-            K, grad_K = self.kernel(self.Xtrain, self.Xtrain, theta[1:])
+            self.kernel.hyperparams = theta[1:]
+            K, grad_K = self.kernel.matrix()
             C = theta[0]**2 * K + (self.ynoise**2 + self.bias_ynoise**2)*np.eye(len_y)
         L = np.linalg.cholesky(C)
         Ly = np.linalg.solve(L, self.ytrain - self.prior_mean(self.Xtrain))
-        # (sign, logdet_C) = np.linalg.slogdet(C)
-        # log_p = -0.5*(Ly @ Ly) - 0.5*logdet_C - 0.5*len_y*np.log(2*np.pi)
         log_p = -0.5*(Ly @ Ly) - np.sum(np.log(np.diag(L))) - 0.5*len_y*np.log(2*np.pi)
         
         ### Taken from GPML code by Rasmussen & Williams & Nickisch ###
@@ -183,17 +140,18 @@ class gp_reg:
             var_post (np.ndarray): 1D array of posterior variance predictions for test locations with shape (n_samples,).
         """
         
-        K_s = self.outputscale**2 * self.kernel(self.Xtrain, Xtest, self.kernel_hyperparams)[0] # K(X,X*)
+        K = self.outputscale**2 * self.kernel.matrix(gradient=False) # K(X,X)
+        K_s = self.outputscale**2 * self.kernel.matrix(Xtest=Xtest, gradient=False) # K(X,X*)
+        K_ss_diag = self.outputscale**2 * self.kernel.matrix(Xtest=Xtest, diag=True) # diag(K(X*,X*))
 
         # Get cholesky decomposition (square root) of the covariance matrix / kernel
-        if self.L is None:
-            K = self.outputscale**2 * self.kernel(self.Xtrain, self.Xtrain, self.kernel_hyperparams)[0] # K(X,X)
-            self.L = np.linalg.cholesky(K + (self.ynoise**2 + self.bias_ynoise**2)*np.eye(len(self.ytrain))) # K = L L^T
-            self.Ly = np.linalg.solve(self.L, self.ytrain - self.prior_mean(self.Xtrain))
-        Lk = np.linalg.solve(self.L, K_s) # <=> L^(-1) @ K_s
-        K_ss_diag = self.outputscale**2 * self.kernel(Xtest, Xtest, self.kernel_hyperparams, diag=True) # diag(K(X*,X*))
+        L = np.linalg.cholesky(K + (self.ynoise**2 + self.bias_ynoise**2)*np.eye(len(self.ytrain))) # K = L L^T
+
+        Ly = np.linalg.solve(L, self.ytrain - self.prior_mean(self.Xtrain))
+        Lk = np.linalg.solve(L, K_s) # <=> L^(-1) @ K_s
+
         var_post = K_ss_diag - np.sum(Lk**2, axis=0)
-        mean_post = Lk.T @ self.Ly + self.prior_mean(Xtest)
+        mean_post = Lk.T @ Ly + self.prior_mean(Xtest)
         return mean_post, var_post
 
 
