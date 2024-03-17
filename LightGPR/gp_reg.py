@@ -2,8 +2,8 @@ import numpy as np
 from scipy import optimize
 from functools import partial
 
-from prior_means import *
-from kernels import *
+from .prior_means import *
+from .kernels import *
 
 
 
