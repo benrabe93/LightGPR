@@ -14,13 +14,13 @@ Key Features:
 Whether you're a seasoned practitioner or just getting started with Gaussian Process Regression, LightGPR offers a straightforward solution for implementing and experimenting with GPR models in Python.
 
 # 📖 Usage
+For a **quickstart guide** to LightGPR, check out the Jupyter notebook [`test.ipynb`](./test.ipynb).
+
 To **download**, either clone the repository
 ```
 git clone https://github.com/benrabe93/LightGPR.git
 ```
 or download the inner folder `LightGPR` into your local python project.
-
-For a **quickstart guide** to LightGPR, check out the Jupyter notebook [`test.ipynb`](./test.ipynb).
 
 For **generic use**, import the `gp_reg` class with
 ```
