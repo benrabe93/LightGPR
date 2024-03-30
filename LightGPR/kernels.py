@@ -93,16 +93,6 @@ class RBF_kernel:
             n = len(Xtest)
             m = len(self.Xtrain)
             
-            # if self.x_dim == 1:
-            #     X1 = np.tile(Xtest,(m,1))
-            #     X2 = np.tile(self.Xtrain.reshape(-1,1),(1,n))
-            #     sqdist = (X1 - X2)**2
-            #     K = np.exp(-0.5 / self.hyperparams**2 * sqdist)
-            #     if self.nonstat_fct is not None:
-            #         K = nonstat_1 * K * nonstat_2.reshape(-1,1)
-            #     if gradient:
-            #         grad_K = [K * sqdist / self.hyperparams**3]
-            # else:
             X1 = np.tile(Xtest,(m,1,1))
             X2 = np.array(np.split(np.repeat(self.Xtrain,n,axis=0),m))
             if is_scalar_or_length_one(self.hyperparams):
@@ -213,21 +203,6 @@ class RQ_kernel:
             n = len(Xtest)
             m = len(self.Xtrain)
             
-            # if self.x_dim == 1:
-            #     X1 = np.tile(Xtest,(m,1))
-            #     X2 = np.tile(self.Xtrain.reshape(-1,1),(1,n))
-            #     sqdist = (X1 - X2)**2
-            #     K = (1 + 0.5 / (ls**2 * alpha) * sqdist)**(-alpha)
-            #     if self.nonstat_fct is not None:
-            #         K = nonstat_1 * K * nonstat_2.reshape(-1,1)
-            #     if gradient:
-            #         grad_K = [
-            #             (1 + 0.5 / (ls**2 * alpha) * sqdist)**(-alpha-1)
-            #             * sqdist / ls**3, 
-            #             K * (sqdist / (sqdist + 2*ls**2*alpha) 
-            #                  - np.log(1 + 0.5 / (ls**2 * alpha) * sqdist))
-            #         ]
-            # else:
             X1 = np.tile(Xtest,(m,1,1))
             X2 = np.array(np.split(np.repeat(self.Xtrain,n,axis=0),m))
             if is_scalar_or_length_one(ls):
@@ -339,16 +314,6 @@ class RBF_exp_decay_kernel:
             n = len(Xtest)
             m = len(self.Xtrain)
             
-            # if self.x_dim == 1:
-            #     X1 = np.tile(Xtest, (m,1))
-            #     X2 = np.tile(self.Xtrain.reshape(-1,1), (1,n))
-            #     sqdist = (X1 - X2)**2
-            #     K = (nonstat_1 * np.exp(-0.5 / ls**2 * sqdist) 
-            #          * nonstat_2.reshape(-1,1))
-            #     if gradient:
-            #         grad_K = [K * sqdist / ls**3, 
-            #                   -K * (sum_norm_1 + sum_norm_2.reshape(-1,1))]
-            # else:
             X1 = np.tile(Xtest,(m,1,1))
             X2 = np.array(np.split(np.repeat(self.Xtrain,n,axis=0),m))
             if is_scalar_or_length_one(ls):
