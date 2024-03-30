@@ -7,15 +7,27 @@ from .kernels import *
 class gp_reg:
     """Gaussian Process Regression (GPR) class"""
     
-    def __init__(self, Xtrain, ytrain, kernel=RBF_kernel, prior_mean=None, ynoise=None):
-        """Initialize GPR model by providing training data (Xtrain, ytrain) and setting prior kernel / covariance function and mean function.
+    def __init__(self, Xtrain, ytrain, kernel=RBF_kernel, prior_mean=None, 
+                 ynoise=None):
+        """Initialize GPR model by providing training data 
+        (Xtrain, ytrain) and setting prior kernel / covariance function 
+        and mean function.
 
         Args:
-            Xtrain (np.ndarray): 2D array of training data with shape (n_samples, n_features).
-            ytrain (np.ndarray): 1D array of training labels with shape (n_samples,).
-            kernel (class, optional): Choice of prior kernel / covariance function from LightGPR.kernels. Defaults to RBF.
-            prior_mean (func, optional): Prior mean function. Defaults to None, corresponding to zero mean.
-            ynoise (float, optional): Fixed noise on training data. If set to None, it is treated as a variable hyperparameter. Defaults to None.
+            Xtrain (np.ndarray): 
+                2D array of training data with shape 
+                (n_samples, n_features).
+            ytrain (np.ndarray): 
+                1D array of training labels with shape (n_samples,).
+            kernel (class, optional): 
+                Choice of prior kernel / covariance function from 
+                LightGPR.kernels. Defaults to RBF.
+            prior_mean (func, optional): 
+                Prior mean function. Defaults to None, corresponding to 
+                zero mean.
+            ynoise (float, optional): 
+                Fixed noise on training data. If set to None, it is 
+                treated as a variable hyperparameter. Defaults to None.
         """
         
         self.Xtrain = np.asarray(Xtrain)
@@ -40,15 +52,21 @@ class gp_reg:
             self.ynoise = ynoise
             self.flag_train_noise = False
         
-        self.bias_ynoise = 0.0 # Additional fixed (non-spherical) noise on training data (optional)
+        # Additional fixed (non-spherical) noise on training data 
+        # (optional)
+        self.bias_ynoise = 0.0
 
-        self.loss = None # Negative log-likelihood
+        # Negative log-likelihood loss
+        self.loss = None
 
 
     def train(self):
-        """Find optimal hyperparameters via maximum log-likelihood estimation method."""
-        
-        theta0 = np.concatenate(([self.outputscale], self.kernel.hyperparams)) # Initial hyperparameters
+        """Find optimal hyperparameters via maximum log-likelihood 
+        estimation method.
+        """
+
+        # Initial hyperparameters and bounds
+        theta0 = np.concatenate(([self.outputscale], self.kernel.hyperparams))
         bnds = self.bnds_outputscale + self.kernel.bnds_hyperparams
         if self.flag_train_noise:
             theta0 = np.concatenate((theta0, [self.ynoise]))
@@ -57,9 +75,11 @@ class gp_reg:
         sol = optimize.minimize(self.log_p, theta0, bounds=bnds, jac=True)
         theta_max = sol.x # Optimal hyperparameters: min(-log_p)
         # if not sol.success:
-        #     print('Loss:', sol.fun, '; Failed;', sol.message, 'theta_max:', theta_max, '#iterations:', sol.nit)
+        #     print('Loss:', sol.fun, '; Failed;', sol.message, 'theta_max:', 
+        #           theta_max, '#iterations:', sol.nit)
         # else:
-        #     print('Loss:', sol.fun, '; Success; theta_max:', theta_max, '#iterations:', sol.nit)
+        #     print('Loss:', sol.fun, '; Success; theta_max:', theta_max, 
+        #           'no. iterations:', sol.nit)
     
         # Set optimal hyperparameters
         self.outputscale = theta_max[0]
@@ -72,28 +92,36 @@ class gp_reg:
     
     
     def log_p(self, theta):
-        """Compute the negative log-likelihood -log p(ytrain|Xtrain,theta) and its gradient w.r.t. theta (for minimalization).
+        """Compute the negative log-likelihood 
+        -log p(ytrain|Xtrain,theta) and its gradient w.r.t. theta 
+        (for minimalization).
 
         Args:
-            theta (np.ndarray): 1D array of hyperparameters.
+            theta (np.ndarray): 
+                1D array of hyperparameters.
 
         Returns:
-            -log_p (float): negative log-likelihood.
-            -grad_log_p (np.ndarray): 1D array of negative gradient of log-likelihood.
+            -log_p (float): 
+                negative log-likelihood.
+            -grad_log_p (np.ndarray): 
+                1D array of negative gradient of log-likelihood.
         """
         
         len_y = len(self.ytrain)
         if self.flag_train_noise:
             self.kernel.hyperparams = theta[1:-1]
             K, grad_K = self.kernel.matrix()
-            C = theta[0]**2 * K + (theta[-1]**2 + self.bias_ynoise**2)*np.eye(len_y)
+            C = (theta[0]**2 * K 
+                 + (theta[-1]**2 + self.bias_ynoise**2)*np.eye(len_y))
         else:
             self.kernel.hyperparams = theta[1:]
             K, grad_K = self.kernel.matrix()
-            C = theta[0]**2 * K + (self.ynoise**2 + self.bias_ynoise**2)*np.eye(len_y)
+            C = (theta[0]**2 * K 
+                 + (self.ynoise**2 + self.bias_ynoise**2)*np.eye(len_y))
         L = np.linalg.cholesky(C)
         Ly = np.linalg.solve(L, self.ytrain - self.prior_mean(self.Xtrain))
-        log_p = -0.5*(Ly @ Ly) - np.sum(np.log(np.diag(L))) - 0.5*len_y*np.log(2*np.pi)
+        log_p = (-0.5*(Ly @ Ly) - np.sum(np.log(np.diag(L))) 
+                 - 0.5*len_y*np.log(2*np.pi))
         
         ### Taken from GPML code by Rasmussen & Williams & Nickisch ###
         # if self.flag_train_noise:
@@ -114,41 +142,74 @@ class gp_reg:
         #         s1 = self.ynoise**2
         # L = np.linalg.cholesky(C)
         # Ly = np.linalg.solve(L, self.ytrain - self.prior_mean(self.Xtrain))
-        # log_p = -0.5*(Ly @ Ly)/s1 - np.sum(np.log(np.diag(L))) - 0.5*len_y*np.log(2*np.pi*s1)
+        # log_p = (-0.5*(Ly @ Ly)/s1 - np.sum(np.log(np.diag(L))) 
+        #          - 0.5*len_y*np.log(2*np.pi*s1))
         
         LLy = np.linalg.solve(L.T, Ly)
         
         grad_log_p = []
-        grad_log_p.append(theta[0]*(LLy.T @ (K @ LLy) - np.trace(np.linalg.solve(L.T, np.linalg.solve(L, K))))) # Derivative w.r.t. outputscale
+
+        # Derivative w.r.t. outputscale
+        grad_log_p.append(
+            theta[0] * (
+                LLy.T @ (K @ LLy) - np.trace(
+                    np.linalg.solve(L.T, np.linalg.solve(L, K))
+                )
+            )
+        )
+
+        # Derivatives w.r.t. kernel hyperparameters
         for i in range(len(grad_K)):
-            grad_log_p.append(0.5*theta[0]**2*(LLy.T @ (grad_K[i] @ LLy) - np.trace(np.linalg.solve(L.T, np.linalg.solve(L, grad_K[i]))))) # Derivatives w.r.t. kernel hyperparameters
+            grad_log_p.append(
+                0.5 * theta[0]**2 * (
+                    LLy.T @ (grad_K[i] @ LLy) - np.trace(
+                        np.linalg.solve(L.T, np.linalg.solve(L, grad_K[i]))
+                    )
+                )
+            )
+
+        # Derivative w.r.t. ynoise
         if self.flag_train_noise:
-            grad_log_p.append(theta[-1]*(LLy @ LLy - np.trace(np.linalg.solve(L.T, np.linalg.solve(L, np.eye(len_y)))))) # Derivative w.r.t. ynoise
-        grad_log_p = np.asarray(grad_log_p)
-        
-        return -log_p, -grad_log_p
+            grad_log_p.append(
+                theta[-1] * (
+                    LLy @ LLy - np.trace(
+                        np.linalg.solve(L.T, np.linalg.solve(L, np.eye(len_y)))
+                    )
+                )
+            )
+
+        return -log_p, -np.asarray(grad_log_p)
     
 
     def predict(self, Xtest):
-        """Make predictions for test locations Xtest using the trained GPR model.
+        """Make predictions for test locations Xtest using the trained 
+        GPR model.
 
         Args:
-            Xtest (np.ndarray): 2D array of test locations with shape (n_samples, n_features).
+            Xtest (np.ndarray): 
+                2D array of test locations with shape 
+                (n_samples, n_features).
 
         Returns:
-            mean_post (np.ndarray): 1D array of posterior mean predictions for test locations with shape (n_samples,).
-            var_post (np.ndarray): 1D array of posterior variance predictions for test locations with shape (n_samples,).
+            mean_post (np.ndarray): 
+                1D array of posterior mean predictions for test 
+                locations with shape (n_samples,).
+            var_post (np.ndarray): 
+                1D array of posterior variance predictions for test 
+                locations with shape (n_samples,).
         """
         
-        K = self.outputscale**2 * self.kernel.matrix(gradient=False) # K(X,X)
-        K_s = self.outputscale**2 * self.kernel.matrix(Xtest=Xtest, gradient=False) # K(X,X*)
-        K_ss_diag = self.outputscale**2 * self.kernel.matrix(Xtest=Xtest, diag=True) # diag(K(X*,X*))
+        K = self.outputscale**2 * self.kernel.matrix(gradient=False)
+        K_s = (self.outputscale**2 
+               * self.kernel.matrix(Xtest=Xtest, gradient=False))
+        K_ss_diag = (self.outputscale**2 
+                     * self.kernel.matrix(Xtest=Xtest, diag=True))
 
-        # Get cholesky decomposition (square root) of the covariance matrix / kernel
-        L = np.linalg.cholesky(K + (self.ynoise**2 + self.bias_ynoise**2)*np.eye(len(self.ytrain))) # K = L L^T
-
+        L = np.linalg.cholesky(
+            K + (self.ynoise**2 + self.bias_ynoise**2)*np.eye(len(self.ytrain))
+        )
         Ly = np.linalg.solve(L, self.ytrain - self.prior_mean(self.Xtrain))
-        Lk = np.linalg.solve(L, K_s) # <=> L^(-1) @ K_s
+        Lk = np.linalg.solve(L, K_s)
 
         var_post = K_ss_diag - np.sum(Lk**2, axis=0)
         mean_post = Lk.T @ Ly + self.prior_mean(Xtest)
